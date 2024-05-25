@@ -1,0 +1,49 @@
+# YAML File
+# use your project ID for GCP.  is the name below = disco-alchemy-423417-u5
+# cloud build will run this, we will have to grant permissions to our cloudbuild service account becuase it will delpoy cloud run application by itself
+# has 4 steps in it
+
+
+# first we build the application using the docker build command
+# has $COMMIT_SHA, which is a unique identifer associated with every commit you do to your repository
+# so every time you make changes to your source code, Git will generate a unique identifier
+# below its in every step so we get a identifier to trace every step to a specific commit (if something goes wrong)
+
+steps:
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['build', '-t', 'gcr.io/disco-alchemy-423417-u5/demo-flask-app:$COMMIT_SHA', '.']
+
+# second we push the image to container registry
+# or we could do artifact registry, its the same process
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['push', 'gcr.io/disco-alchemy-423417-u5/demo-flask-app:$COMMIT_SHA']
+
+# third we run our unit test code
+# this command will look for any script that starts with the name test
+# our pytest script in the training video was called test_main.py, this script will be automatically triggered
+- name: 'gcr.io/disco-alchemy-423417-u5/demo-flask-app:$COMMIT_SHA'
+  entrypoint: 'bash'
+  args:
+   - '-c'
+   - |
+      python -m pytest
+
+
+# after test cases get passed sucessfully
+# fourth is deploy the image to cloud run
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: gcloud
+  args:
+   - 'run'
+   - 'deploy'
+   - 'py-bq-load'
+   - '--image'
+   - 'gcr.io/disco-alchemy-423417-u5/demo-flask-app:$COMMIT_SHA'
+   - '--region'
+   - 'us-central1'
+   - '--allow-unauthenticated'
+images:
+- 'gcr.io/disco-alchemy-423417-u5/demo-flask-app:$COMMIT_SHA'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
